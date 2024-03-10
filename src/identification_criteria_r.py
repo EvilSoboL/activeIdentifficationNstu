@@ -90,32 +90,44 @@ class IdentificationCriteria:
         return theta_1
 
     @staticmethod
-    def get_derivatives() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        dF_1: np.ndarray = np.array([[np.array([0, 0]), np.array([0, 0])],
+    def get_derivatives() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        dF: np.ndarray = np.array([[np.array([0, 0]), np.array([0, 0])],
                                    [np.array([1, 0]), np.array([0, 0])]])
-        dF_2: np.ndarray = np.array([[np.array([0, 0]), np.array([0, 0])],
-                                     [np.array([0, 0]), np.array([0, 0])]])
-        dPsi_1: np.ndarray = np.array([np.array([0, 1]), np.array([0, 0])])
-        dPsi_2: np.ndarray = np.array([np.array([0, 1]), np.array([0, 0])])
+        dPsi: np.ndarray = np.array([np.array([0, 1]), np.array([0, 0])])
         dH: np.ndarray = np.array([np.array([0, 0]), np.array([0, 0])])
         dR: np.ndarray = np.array([[0, 0]])
         dx0 = np.array([np.array([0, 0]), np.array([0, 0])])
 
-        return dF_1, dF_2, dPsi_1, dPsi_2, dH, dR, dx0
+        return dF, dPsi, dH, dR, dx0
 
     def get_grad_identification_criteria(self, theta: list[int], observation: np.ndarray) -> float:
         v = 1
-        dF_1, dF_2, dPsi_1, dPsi_2, dH, dR, dx0 = self.get_derivatives()
+        F: np.ndarray = self.get_F(theta[0])
+        dF, dPsi, dH, dR, dx0 = self.get_derivatives()
+
+        x: list[np.array] = self.generate_input_x(theta)
+        delta: int = 0
+
         for k in range(self.N):
-            if k == 0:
-                d_identification_criteria_1 = v / 2 * self.N * np.trace(self.R ** (-1) * dR)
-                d_identification_criteria_2 = v / 2 * self.N * np.trace(self.R ** (-1) * dR)
-                delta_1 = 0
-                delta_2 = 0
+            d_identification_criteria = v / 2 * self.N * np.trace(self.R ** (-1) * dR)
+            dx: np.ndarray = dF @ x[k] + F @ dx0 + dPsi
+            depsilon: np.ndarray = -dH @ x[k] - dH @ dx
+            epsilon_tk: np.ndarray = observation[k] - self.H @ x[k]
+            delta = (delta + depsilon.T * self.R ** (-1) * epsilon_tk -
+                     0.5 * epsilon_tk.T * self.R ** (-1) @ dR * self.R ** (-1) * epsilon_tk)
+            d_identification_criteria = d_identification_criteria + delta
 
-        return d_identification_criteria_1
+        return d_identification_criteria
 
+    def get_grad_estimate(self, theta_true):
+        n: int = 5
+        theta_1 = np.zeros((2, n))
 
+        for i in range(n):
+            y: np.ndarray = self.generate_output_y(theta_true)
+            mmp_x = lambda t: self.get_identification_criteria(t, y)
+            mmp_grad = lambda t: self.get_grad_identification_criteria(t, y)
+            result = minimize(mmp_x, np.array([-1, 1]), jac=mmp_grad, method='SLSQP', bounds=[(-2, -0.05), (0.01, 1.5)])
+            theta_1[:, i] = result.x
 
-
-
+        return theta_1
