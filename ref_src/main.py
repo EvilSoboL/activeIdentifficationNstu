@@ -5,14 +5,17 @@ import non_gradients as non_gr
 from scipy.optimize import minimize, Bounds
 
 
-def minimizeFirst(tettaMin, params):
+def minimizeFirst(tettaMin, params, dx):
     non_gradX = params["non_gradX"]
+    gradX = params['gradX']
     lim = [-2.0, 0.01, -0.05, 1.5]
     bounds = Bounds([lim[0], lim[1]],  # [min x0, min x1]
                     [lim[2], lim[3]])  # [max x0, max x1]
     result = minimize(fun=non_gradX.Xi, x0=tettaMin, args=params,  method="SLSQP", bounds=bounds)
+    grad_result = minimize(fun=non_gradX.Xi, x0=tettaMin, jac=dx, args=params, method="SLSQP", bounds=bounds)
     print("Тетты для первого порядка:\n", result)
     return np.array(result.__getitem__("x")). reshape(2, 1)
+
 def xTransform(massive):
     m = len(massive)
     n = len(massive[0])
@@ -71,11 +74,9 @@ def main():
             else:
                 c = xTransform(dxtdt_start[i - 1])
                 dx[alpha][i] = ((np.array(odeint(gradX.dxdtAlpha, xTransform(dx[alpha][i - 1]), tNow, args=(alpha, c[0], c[1]))[1])).reshape(2, 1))
-
+    print(dx.shape)
     params = {"N": N, "ki": ki, "q": q, "s":s, "m":m, "v":v, "y": y(dxtdt_start, {"H":H, "R":R}),"non_gradX":non_gradX, "gradX":gradX}
-    print(f'Result is: \n{minimizeFirst(tetta_false, params)}')
-
-    print(y(dxtdt_start, {"H":H, "R":R}))
+    print(f'Result is: \n{minimizeFirst(tetta_false, params, dx)}')
     return 0
 
 main()

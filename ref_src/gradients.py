@@ -64,3 +64,6 @@ class Gradients(non_gradients.IGradient):
         for i in range(len(dxDot)):
             massive[i] = dxDot[i][0]
         return massive
+
+    def gradXi(self):
+        pass
